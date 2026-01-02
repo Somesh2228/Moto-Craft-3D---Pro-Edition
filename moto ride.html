@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Moto Craft 3D - Fair Progression</title>
+    <style>
+        :root {
+            --mc-bg: #c6c6c6;
+            --mc-border-light: #ffffff;
+            --mc-border-dark: #555555;
+            --mc-shadow: rgba(0,0,0,0.3);
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background-color: #72a6ff;
+            font-family: 'Courier New', Courier, monospace;
+            user-select: none; touch-action: none;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .mc-panel {
+            position: absolute;
+            top: 20px; left: 20px;
+            background: var(--mc-bg);
+            border: 4px solid var(--mc-border-light);
+            border-right-color: var(--mc-border-dark);
+            border-bottom-color: var(--mc-border-dark);
+            padding: 12px 18px;
+            color: #3f3f3f;
+            font-weight: bold;
+            box-shadow: 4px 4px 0 var(--mc-shadow);
+        }
+
+        #menu, #controls-modal {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--mc-bg);
+            padding: 30px;
+            border: 6px solid var(--mc-border-light);
+            border-right-color: var(--mc-border-dark);
+            border-bottom-color: var(--mc-border-dark);
+            text-align: center;
+            pointer-events: auto;
+            min-width: 340px;
+            z-index: 20;
+            box-shadow: 10px 10px 0 var(--mc-shadow);
+        }
+
+        #controls-modal { display: none; text-align: left; }
+
+        h1 { margin: 0 0 10px 0; color: #3f3f3f; font-size: 28px; text-transform: uppercase; letter-spacing: 2px; }
+        h2 { margin: 0 0 15px 0; color: #d32f2f; font-size: 20px; }
+
+        .mc-btn {
+            background: #7e7e7e;
+            color: white;
+            border: 4px solid #000;
+            border-top-color: var(--mc-border-light);
+            border-left-color: var(--mc-border-light);
+            padding: 14px 28px;
+            font-size: 18px;
+            cursor: pointer;
+            font-family: inherit;
+            margin: 8px;
+            display: inline-block;
+            transition: transform 0.1s;
+        }
+
+        .mc-btn:active {
+            border: 4px solid var(--mc-border-light);
+            border-top-color: #000;
+            border-left-color: #000;
+            transform: translateY(2px);
+        }
+
+        .touch-controls {
+            position: absolute;
+            bottom: 40px; width: 100%;
+            display: flex; justify-content: space-between;
+            padding: 0 40px; box-sizing: border-box;
+        }
+
+        .control-group {
+            display: flex; gap: 15px; align-items: flex-end;
+        }
+
+        .btn-sq {
+            width: 80px; height: 80px;
+            background: rgba(126, 126, 126, 0.8);
+            border: 5px solid #000;
+            border-top-color: var(--mc-border-light);
+            border-left-color: var(--mc-border-light);
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: auto; color: white; font-size: 28px; font-weight: bold;
+            box-shadow: 5px 5px 0 var(--mc-shadow);
+            backdrop-filter: blur(4px);
+        }
+
+        #level-progress {
+            position: absolute;
+            top: 25px; right: 25px;
+            width: 220px; height: 30px;
+            background: #333;
+            border: 4px solid #fff;
+            box-shadow: 4px 4px 0 var(--mc-shadow);
+        }
+
+        #progress-bar {
+            width: 0%; height: 100%;
+            background: #5da339;
+            transition: width 0.3s;
+        }
+
+        .msg-pop {
+            position: absolute;
+            top: 25%; width: 100%;
+            text-align: center; font-size: 36px;
+            color: #ffff00; text-shadow: 4px 4px 0 #000;
+            opacity: 0; transition: 0.5s;
+            pointer-events: none;
+        }
+
+        .control-row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 2px dashed #888; padding-bottom: 4px; }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer">
+    <div class="mc-panel">
+        <div>LVL: <span id="lvl-num">1</span></div>
+        <div>DIST: <span id="dist-val">0</span> / <span id="target-dist">200</span>m</div>
+        <div>CP: <span id="cp-val">0</span></div>
+    </div>
+
+    <div id="level-progress">
+        <div id="progress-bar"></div>
+    </div>
+
+    <div id="checkpoint-msg" class="msg-pop">CHECKPOINT!</div>
+    <div id="level-msg" class="msg-pop">LEVEL COMPLETE!</div>
+
+    <div id="menu">
+        <h1>MOTO CRAFT 3D</h1>
+        <h2 id="level-info">WORLD 1: GRASSLANDS (EASY)</h2>
+        <p id="status-text" style="color: #3f3f3f; margin-bottom: 15px; font-weight: bold;"></p>
+        <button id="start-btn" class="mc-btn">RACE START</button>
+        <button id="ctrl-btn" class="mc-btn">CONTROLS</button>
+    </div>
+
+    <div id="controls-modal">
+        <h1>CONTROLS</h1>
+        <div class="control-row"><span>DRIVE (GAS)</span> <span>W / UP / G</span></div>
+        <div class="control-row"><span>BRAKE / REV</span> <span>S / DOWN / B</span></div>
+        <div class="control-row"><span>STUNT JUMP</span> <span>SPACE / J</span></div>
+        <div class="control-row"><span>TILT BACK</span> <span>A / LEFT</span></div>
+        <div class="control-row"><span>TILT FRONT</span> <span>D / RIGHT</span></div>
+        <div class="control-row"><span>QUICK RESTART</span> <span>R</span></div>
+        <br>
+        <button id="close-ctrl" class="mc-btn" style="width: 100%">CLOSE</button>
+    </div>
+
+    <div class="touch-controls">
+        <div class="control-group">
+            <div class="btn-sq" id="btn-left">↺</div>
+            <div class="btn-sq" id="btn-right">↻</div>
+        </div>
+        <div class="control-group">
+            <div class="btn-sq" id="btn-jump" style="background:rgba(85, 170, 255, 0.8)">J</div>
+            <div class="btn-sq" id="btn-brake" style="background:rgba(204, 51, 51, 0.8)">B</div>
+            <div class="btn-sq" id="btn-gas" style="background:rgba(51, 204, 51, 0.8)">G</div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/**
+ * Moto Craft 3D - Progression Edition (Fixed Level 2 Safety)
+ */
+
+let scene, camera, renderer, clock;
+let terrainBlocks = [];
+let movingObstacles = [];
+let checkpoints = [];
+let bike;
+
+// Progression State
+let currentLevel = 1;
+let levelDistances = [200, 500, 1000, 2000, 5000];
+let lastCheckpointX = 0;
+let gameState = 'MENU';
+
+// Physics & Input
+const keys = {};
+const touch = { gas: false, brake: false, left: false, right: false, jump: false };
+const BLOCK_SIZE = 2;
+const GRAVITY = -0.016;
+const BIKE_ACCEL = 0.015;
+const MAX_SPEED = 0.68;
+const FRICTION = 0.985;
+const JUMP_FORCE = 0.38;
+
+let gapCounter = 0;
+
+function init() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x72a6ff);
+    scene.fog = new THREE.Fog(0x72a6ff, 30, 150);
+
+    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+    
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambientLight);
+
+    const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+    sun.position.set(20, 50, 20);
+    sun.castShadow = true;
+    sun.shadow.camera.left = -100;
+    sun.shadow.camera.right = 100;
+    sun.shadow.camera.top = 100;
+    sun.shadow.camera.bottom = -100;
+    scene.add(sun);
+
+    clock = new THREE.Clock();
+
+    setupInput();
+    createBike();
+    generateWorld(0, 80);
+    
+    window.addEventListener('resize', onWindowResize);
+    animate();
+}
+
+function setupInput() {
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    const touchIds = { 
+        'btn-gas': 'gas', 
+        'btn-brake': 'brake', 
+        'btn-left': 'left', 
+        'btn-right': 'right',
+        'btn-jump': 'jump'
+    };
+    Object.keys(touchIds).forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener('touchstart', e => { e.preventDefault(); touch[touchIds[id]] = true; });
+        el.addEventListener('touchend', e => { e.preventDefault(); touch[touchIds[id]] = false; });
+    });
+
+    document.getElementById('start-btn').addEventListener('click', () => {
+        resetToLastCheckpoint();
+        gameState = 'PLAYING';
+        document.getElementById('menu').style.display = 'none';
+    });
+
+    document.getElementById('ctrl-btn').addEventListener('click', () => {
+        document.getElementById('controls-modal').style.display = 'block';
+    });
+
+    document.getElementById('close-ctrl').addEventListener('click', () => {
+        document.getElementById('controls-modal').style.display = 'none';
+    });
+}
+
+function createBike() {
+    bike = new THREE.Group();
+    bike.visuals = new THREE.Group();
+    bike.add(bike.visuals);
+
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.5, 0.6), new THREE.MeshStandardMaterial({ color: 0xcc3333 }));
+    frame.castShadow = true;
+    bike.visuals.add(frame);
+
+    const engine = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.6), new THREE.MeshStandardMaterial({ color: 0x444444 }));
+    engine.position.y = -0.1;
+    bike.visuals.add(engine);
+
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+    const wheelGeo = new THREE.BoxGeometry(0.9, 0.9, 0.5);
+    bike.rearWheel = new THREE.Mesh(wheelGeo, wheelMat);
+    bike.rearWheel.position.set(-0.7, -0.45, 0);
+    bike.visuals.add(bike.rearWheel);
+    bike.frontWheel = new THREE.Mesh(wheelGeo, wheelMat);
+    bike.frontWheel.position.set(0.7, -0.45, 0);
+    bike.visuals.add(bike.frontWheel);
+
+    const rider = new THREE.Group();
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.9, 0.5), new THREE.MeshStandardMaterial({color: 0x222222}));
+    torso.position.y = 0.5;
+    rider.add(torso);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), new THREE.MeshStandardMaterial({color: 0xffccaa}));
+    head.position.y = 1.15;
+    rider.add(head);
+    const helmet = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.5), new THREE.MeshStandardMaterial({color: 0xffeb3b}));
+    helmet.position.y = 1.35;
+    rider.add(helmet);
+    bike.visuals.add(rider);
+    
+    bike.velocity = new THREE.Vector3();
+    bike.rotVelocity = 0;
+    bike.isGrounded = false;
+    scene.add(bike);
+}
+
+const mats = {
+    grass: new THREE.MeshStandardMaterial({ color: 0x5da339 }),
+    dirt: new THREE.MeshStandardMaterial({ color: 0x866043 }),
+    tnt: new THREE.MeshStandardMaterial({ color: 0xcc0000 }),
+    lava: new THREE.MeshStandardMaterial({ color: 0xff4400, emissive: 0x441100 }),
+    wood: new THREE.MeshStandardMaterial({ color: 0x4d2600 }),
+    iron: new THREE.MeshStandardMaterial({ color: 0x777777, metalness: 0.6, roughness: 0.2 }),
+    spike: new THREE.MeshStandardMaterial({ color: 0x333333 }),
+    cpOff: new THREE.MeshStandardMaterial({ color: 0xaa0000 }),
+    cpOn: new THREE.MeshStandardMaterial({ color: 0x00ff00 })
+};
+
+function generateWorld(startIndex, count) {
+    let lastY = terrainBlocks.length > 0 ? terrainBlocks[terrainBlocks.length-1].y/BLOCK_SIZE : 0;
+    
+    // Difficulty Settings
+    let gapProb = currentLevel === 1 ? 0.04 : 0.15 + (currentLevel * 0.05);
+    let obsInterval = currentLevel === 1 ? 50 : (currentLevel === 2 ? 22 : 12);
+    let heightVariation = currentLevel === 1 ? 0.05 : 0.25;
+
+    for (let i = startIndex; i < startIndex + count; i++) {
+        // Safe Zone Check: Don't spawn obstacles 5 blocks before/after a checkpoint
+        const isNearCheckpoint = (i % 40 < 5 || i % 40 > 35);
+
+        // Gap logic
+        if (gapCounter > 0) {
+            gapCounter--;
+            const x = i * BLOCK_SIZE;
+            const y = (lastY - 4) * BLOCK_SIZE;
+            
+            const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE * 4);
+            const block = new THREE.Mesh(geo, mats.lava);
+            block.position.set(x, y, 0);
+            scene.add(block);
+            terrainBlocks.push({ x, y, mesh: block, type: 'LAVA' });
+
+            if (currentLevel > 1 && gapCounter === 1 && Math.random() < 0.6 && !isNearCheckpoint) {
+                createBellPendulum(x, (lastY + 3) * BLOCK_SIZE);
+            }
+            continue;
+        }
+
+        // Start Gaps
+        if (i > 15 && i % 40 !== 0 && Math.random() < gapProb) {
+            gapCounter = currentLevel === 1 ? 2 : Math.floor(Math.random() * 2) + 2;
+            i--;
+            continue;
+        }
+
+        if (i > 5) {
+            const noise = Math.random();
+            if (noise < heightVariation) lastY += 1;
+            else if (noise < heightVariation * 2) lastY -= 1;
+            else if (noise < heightVariation * 2.2 && currentLevel > 2) lastY += 2;
+        }
+
+        const x = i * BLOCK_SIZE;
+        const y = lastY * BLOCK_SIZE;
+        
+        const geo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE * 4);
+        const block = new THREE.Mesh(geo, mats.grass);
+        block.position.set(x, y, 0);
+        block.receiveShadow = true;
+        scene.add(block);
+        terrainBlocks.push({ x, y, mesh: block, type: 'LAND' });
+
+        // Moving Obstacles - Avoid placing too close to checkpoint markers
+        if (i % obsInterval === 0 && i > 15 && !isNearCheckpoint) {
+            const r = Math.random();
+            if (r < 0.4) createSwingingHammer(x, y);
+            else if (r < 0.7) createRollingSpike(x, y);
+            else createBellPendulum(x, y);
+        }
+
+        if (i > 0 && i % 40 === 0) {
+            createCheckpoint(x, y);
+        }
+    }
+}
+
+function createSwingingHammer(x, y) {
+    const group = new THREE.Group();
+    group.position.set(x, y + 11, 0); 
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.3, 7, 0.3), mats.wood);
+    handle.position.y = -3.5;
+    group.add(handle);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.8, 1.8), mats.iron);
+    head.position.y = -7.5;
+    group.add(head);
+    scene.add(group);
+    movingObstacles.push({ type: 'HAMMER', mesh: group, startTime: Math.random() * 10, x, y });
+}
+
+function createRollingSpike(x, y) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), mats.spike);
+    mesh.position.set(x + 15, y + 1.3, 0);
+    scene.add(mesh);
+    movingObstacles.push({ type: 'SPIKE', mesh: mesh, startX: x + 15, x, y });
+}
+
+function createBellPendulum(x, y) {
+    const group = new THREE.Group();
+    group.position.set(x, y + 12, 0); 
+    const string = new THREE.Mesh(new THREE.BoxGeometry(0.15, 8, 0.15), mats.iron);
+    string.position.y = -4;
+    group.add(string);
+    const bell = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 2.2), mats.tnt); 
+    bell.position.y = -9;
+    group.add(bell);
+    scene.add(group);
+    movingObstacles.push({ type: 'BELL', mesh: group, startTime: Math.random() * 5, x, y });
+}
+
+function createCheckpoint(x, y) {
+    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.4, 8, 0.4), mats.iron);
+    pole.position.set(x, y + 4, 3);
+    scene.add(pole);
+    const flag = new THREE.Mesh(new THREE.BoxGeometry(2, 1.5, 0.2), mats.cpOff);
+    flag.position.set(x + 1, y + 7.2, 3);
+    scene.add(flag);
+    checkpoints.push({ x, mesh: flag, id: checkpoints.length + 1, reached: false });
+}
+
+function getTerrainAt(x) {
+    const idx = Math.floor((x + BLOCK_SIZE/2) / BLOCK_SIZE);
+    return terrainBlocks.find(b => Math.abs(b.x - idx * BLOCK_SIZE) < 0.1) || null;
+}
+
+function resetToLastCheckpoint() {
+    const terrain = getTerrainAt(lastCheckpointX);
+    bike.position.set(lastCheckpointX, (terrain ? terrain.y : 0) + 6, 0);
+    bike.velocity.set(0, 0, 0);
+    bike.rotation.set(0, 0, 0);
+    bike.rotVelocity = 0;
+    bike.isGrounded = false;
+    bike.dead = false;
+}
+
+function updatePhysics() {
+    if (gameState !== 'PLAYING') return;
+
+    bike.velocity.y += GRAVITY;
+    bike.position.add(bike.velocity);
+    bike.rotation.z += bike.rotVelocity;
+    bike.rotVelocity *= 0.97;
+
+    const terrain = getTerrainAt(bike.position.x);
+    if (terrain) {
+        const groundY = terrain.y + 1.2;
+        if (bike.position.y <= groundY) {
+            if (terrain.type === 'LAVA') { die("YOU FELL INTO THE VOID!"); return; }
+            bike.position.y = groundY;
+            bike.velocity.y = 0;
+            bike.isGrounded = true;
+
+            const next = getTerrainAt(bike.position.x + 0.6);
+            const diff = next ? (next.y - terrain.y) : 0;
+            bike.rotation.z += (diff * 0.15 - bike.rotation.z) * 0.1;
+
+            if (keys['Space'] || keys['KeyJ'] || touch.jump) {
+                bike.velocity.y = JUMP_FORCE;
+                bike.isGrounded = false;
+                bike.visuals.scale.set(1.2, 0.8, 1);
+            }
+            if (keys['ArrowRight'] || keys['KeyD'] || keys['KeyW'] || keys['ArrowUp'] || touch.gas) bike.velocity.x += BIKE_ACCEL;
+            if (keys['ArrowLeft'] || keys['KeyA'] || keys['KeyS'] || keys['ArrowDown'] || touch.brake) bike.velocity.x *= 0.9;
+            bike.velocity.x *= FRICTION;
+        } else { bike.isGrounded = false; }
+    } else if (bike.position.y < -25) die("FELL OUT OF WORLD!");
+
+    if (!bike.isGrounded) {
+        if (keys['ArrowLeft'] || keys['KeyA'] || touch.left) bike.rotVelocity += 0.007;
+        if (keys['ArrowRight'] || keys['KeyD'] || touch.right) bike.rotVelocity -= 0.007;
+        bike.visuals.scale.lerp(new THREE.Vector3(1, 1, 1), 0.1);
+    } else { bike.visuals.scale.lerp(new THREE.Vector3(1, 1, 1), 0.2); }
+
+    bike.velocity.x = Math.min(bike.velocity.x, MAX_SPEED);
+
+    const time = clock.getElapsedTime();
+    const hazardSpeed = 2.2 + (currentLevel * 0.4); 
+    const spikeMoveSpeed = 0.15 + (currentLevel * 0.05);
+
+    movingObstacles.forEach(ob => {
+        if (ob.type === 'HAMMER' || ob.type === 'BELL') {
+            const swing = Math.sin(time * hazardSpeed + ob.startTime) * 1.0; 
+            ob.mesh.rotation.z = swing;
+            const worldPos = new THREE.Vector3();
+            ob.mesh.children[1].getWorldPosition(worldPos);
+            if (bike.position.distanceTo(worldPos) < 2.3) die(`SMASHED BY ${ob.type}!`);
+        } else if (ob.type === 'SPIKE') {
+            ob.mesh.position.x -= spikeMoveSpeed;
+            ob.mesh.rotation.z += 0.25;
+            const spikeTerrain = getTerrainAt(ob.mesh.position.x);
+            if (spikeTerrain) {
+                ob.mesh.position.y = (spikeTerrain.type === 'LAVA' ? spikeTerrain.y + 0.3 : spikeTerrain.y + 0.8);
+            }
+            if (ob.mesh.position.x < bike.position.x - 25) {
+                ob.mesh.position.x = bike.position.x + 45;
+            }
+            if (bike.position.distanceTo(ob.mesh.position) < 2.0) die("HIT BY SPIKE!");
+        }
+    });
+
+    checkpoints.forEach(cp => {
+        if (!cp.reached && bike.position.x > cp.x) {
+            cp.reached = true;
+            cp.mesh.material = mats.cpOn;
+            lastCheckpointX = cp.x;
+            document.getElementById('cp-val').innerText = cp.id;
+            popMsg("checkpoint-msg");
+        }
+    });
+
+    const lastX = terrainBlocks[terrainBlocks.length - 1].x;
+    if (bike.position.x > lastX - 60) generateWorld(Math.floor(lastX/BLOCK_SIZE) + 1, 40);
+
+    const dist = Math.floor(bike.position.x / 2);
+    const target = levelDistances[currentLevel - 1] || 10000;
+    document.getElementById('dist-val').innerText = Math.max(0, dist);
+    document.getElementById('target-dist').innerText = target;
+    document.getElementById('progress-bar').style.width = Math.min(100, (dist/target)*100) + "%";
+
+    if (dist >= target) levelUp();
+    bike.rearWheel.rotation.z -= bike.velocity.x * 3;
+    bike.frontWheel.rotation.z -= bike.velocity.x * 3;
+    if (keys['KeyR']) resetToLastCheckpoint();
+}
+
+function levelUp() {
+    currentLevel++;
+    popMsg("level-msg");
+    document.getElementById('lvl-num').innerText = currentLevel;
+    
+    let diffTag = currentLevel === 1 ? "EASY" : (currentLevel === 2 ? "HARD" : "EXTREME");
+    
+    if (currentLevel === 2) {
+        scene.background = new THREE.Color(0xffaa77);
+        scene.fog.color = new THREE.Color(0xffaa77);
+        document.getElementById('level-info').innerText = "WORLD 2: DUSTY DUNES (" + diffTag + ")";
+    } else if (currentLevel >= 3) {
+        scene.background = new THREE.Color(0x111122);
+        scene.fog.color = new THREE.Color(0x111122);
+        document.getElementById('level-info').innerText = "WORLD 3: VOID CANYON (" + diffTag + ")";
+    }
+}
+
+function die(msg) {
+    if (gameState === 'GAMEOVER') return;
+    gameState = 'GAMEOVER';
+    document.getElementById('status-text').innerText = msg;
+    document.getElementById('menu').style.display = 'block';
+    document.getElementById('start-btn').innerText = "RESPAWN";
+}
+
+function popMsg(id) {
+    const el = document.getElementById(id);
+    el.style.opacity = 1;
+    setTimeout(() => el.style.opacity = 0, 2000);
+}
+
+function updateCamera() {
+    const targetPos = new THREE.Vector3(bike.position.x + 10, bike.position.y + 6, 20);
+    camera.position.lerp(targetPos, 0.08);
+    camera.lookAt(bike.position.x + 3, bike.position.y, 0);
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    updatePhysics();
+    updateCamera();
+    renderer.render(scene, camera);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
